@@ -579,23 +579,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 
 /* ── PROFILE VIDEO FRAME ──────────────────────────────── */
 .video-frame-wrap{
-  width:280px;height:280px;border-radius:50%;
-  margin:0 auto 1.5rem;position:relative;
-  display:grid;place-items:center;
+  width:200px;height:200px;border-radius:50%;
+  margin:0 auto 1.2rem;position:relative;
+  display:grid;place-items:center;cursor:pointer;
 }
-.video-ring{
-  position:absolute;inset:-4px;border-radius:50%;
-  background:conic-gradient(var(--cyan),var(--purple),var(--green),var(--amber),var(--red),var(--cyan));
-  animation:spin 4s linear infinite, videoRingPulse 2s ease-in-out infinite;
-  -webkit-mask:radial-gradient(circle,transparent calc(50% - 4px),black calc(50% - 3px));
-  mask:radial-gradient(circle,transparent calc(50% - 4px),black calc(50% - 3px));
-}
-@keyframes videoRingPulse{
-  0%,100%{filter:brightness(1) drop-shadow(0 0 6px var(--cyan))}
-  25%{filter:brightness(1.4) drop-shadow(0 0 18px var(--purple))}
-  50%{filter:brightness(1.6) drop-shadow(0 0 24px var(--green))}
-  75%{filter:brightness(1.4) drop-shadow(0 0 18px var(--amber))}
-}
+
 #profileVideo{
   border:3px solid transparent;
   box-shadow:0 0 30px rgba(0,212,255,.4),0 0 60px rgba(168,85,247,.2);
@@ -996,11 +984,15 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
     <div class="p-card">
       <div class="p-top">
         <div class="video-frame-wrap">
-          <div class="video-ring"></div>
           <video id="profileVideo" autoplay muted loop playsinline
-            style="width:260px;height:260px;border-radius:50%;object-fit:cover;position:relative;z-index:1;display:block;margin:0 auto;cursor:pointer;">
+            style="width:196px;height:196px;border-radius:50%;object-fit:cover;position:relative;z-index:1;display:block;margin:0 auto;cursor:pointer;border:2px solid var(--cyan);box-shadow:0 0 20px rgba(0,212,255,.3);">
             <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/q_auto/f_auto/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
           </video>
+          <div style="position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.0);transition:background .2s;pointer-events:none;" id="videoPlayHint">
+            <div style="opacity:0;transition:opacity .2s;background:rgba(0,212,255,.85);border-radius:50%;width:44px;height:44px;display:grid;place-items:center;" id="videoPlayIcon">
+              <svg width="16" height="18" viewBox="0 0 16 18" fill="white"><polygon points="0,0 16,9 0,18"/></svg>
+            </div>
+          </div>
         </div>
         <div class="p-name">Ali Al-Marri &middot; &#1593;&#1604;&#1610; &#1575;&#1604;&#1605;&#1585;&#1610;</div>
         <div class="p-degree">PhD CANDIDATE &middot; BUSINESS ADMINISTRATION</div>
@@ -1303,20 +1295,59 @@ updateJubailClock();
 setInterval(updateJubailClock,1000);
 
 
-// ── PROFILE VIDEO SOUND ────────────────────────────────
-document.addEventListener('click', function() {
-  const v = document.getElementById('profileVideo');
-  if(v && v.muted) {
-    v.muted = false;
-    v.volume = 0.8;
+// ── PROFILE VIDEO: hover hint + click to expand with audio ──
+(function(){
+  const wrap = document.querySelector('.video-frame-wrap');
+  const vid  = document.getElementById('profileVideo');
+  const hint = document.getElementById('videoPlayHint');
+  const icon = document.getElementById('videoPlayIcon');
+  if(!wrap||!vid) return;
+
+  wrap.addEventListener('mouseenter',()=>{
+    hint.style.background='rgba(0,0,0,.25)';
+    icon.style.opacity='1';
+  });
+  wrap.addEventListener('mouseleave',()=>{
+    hint.style.background='rgba(0,0,0,.0)';
+    icon.style.opacity='0';
+  });
+
+  wrap.addEventListener('click',()=>{
+    // open modal
+    const overlay = document.getElementById('profileVideoModal');
+    const mv = document.getElementById('profileModalVid');
+    overlay.style.display='flex';
+    mv.muted = false;
+    mv.volume = 0.9;
+    mv.currentTime = 0;
+    mv.play();
+  });
+
+  function closeProfileModal(){
+    const overlay = document.getElementById('profileVideoModal');
+    const mv = document.getElementById('profileModalVid');
+    overlay.style.display='none';
+    mv.pause();
+    mv.currentTime=0;
+    mv.muted=true;
   }
-}, {once: true});
-// Auto-attempt unmute
-setTimeout(()=>{
-  const v = document.getElementById('profileVideo');
-  if(v) { v.muted=false; v.play().catch(()=>{ v.muted=true; v.play(); }); }
-}, 500);
+  document.getElementById('profileVideoModal').addEventListener('click',function(e){
+    if(e.target===this) closeProfileModal();
+  });
+  document.getElementById('closeProfileModal').addEventListener('click', closeProfileModal);
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeProfileModal(); });
+})();
 
 </script>
+
+<!-- PROFILE VIDEO MODAL -->
+<div id="profileVideoModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);align-items:center;justify-content:center;backdrop-filter:blur(10px);">
+  <div style="position:relative;width:min(94vw,860px);background:var(--ink2);border:1px solid var(--cyan-line);box-shadow:0 0 80px rgba(0,212,255,.25);">
+    <button id="closeProfileModal" style="position:absolute;top:-42px;left:0;font-family:var(--mono);font-size:.75rem;color:var(--ghost);background:var(--ink2);border:1px solid var(--rule);cursor:pointer;padding:.35rem 1rem;letter-spacing:.1em;transition:color .15s,border-color .15s;" onmouseover="this.style.color='var(--cyan)';this.style.borderColor='var(--cyan)'" onmouseout="this.style.color='var(--ghost)';this.style.borderColor='var(--rule)'">✕ &nbsp;CLOSE</button>
+    <video id="profileModalVid" controls muted style="width:100%;display:block;max-height:85vh;object-fit:contain;">
+      <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/q_auto/f_auto/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
+    </video>
+  </div>
+</div>
 </body>
 </html>
