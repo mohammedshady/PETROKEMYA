@@ -579,8 +579,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 
 /* ── PROFILE VIDEO FRAME ──────────────────────────────── */
 .video-frame-wrap{
-  width:220px;height:220px;border-radius:50%;
-  margin:0 auto 1rem;position:relative;
+  width:280px;height:280px;border-radius:50%;
+  margin:0 auto 1.5rem;position:relative;
   display:grid;place-items:center;
 }
 .video-ring{
@@ -997,11 +997,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
       <div class="p-top">
         <div class="video-frame-wrap">
           <div class="video-ring"></div>
-          <video id="profileVideo" crossorigin="anonymous" autoplay muted loop playsinline
-            style="width:200px;height:200px;border-radius:50%;object-fit:cover;position:relative;z-index:1;display:block;margin:0 auto;">
-            <source src="https://raw.githubusercontent.com/mohammedshady/PETROKEMYA/main/assets/profile-video.mp4" type="video/mp4">
-            <source src="https://raw.githubusercontent.com/mohammedshady/PETROKEMYA/main/assets/profile-video.mov" type="video/quicktime">
-            <p style="color:var(--muted);font-size:.7rem;text-align:center">Video loading...</p>
+          <video id="profileVideo" autoplay muted loop playsinline
+            style="width:260px;height:260px;border-radius:50%;object-fit:cover;position:relative;z-index:1;display:block;margin:0 auto;cursor:pointer;">
+            <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/q_auto/f_auto/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
           </video>
         </div>
         <div class="p-name">Ali Al-Marri &middot; &#1593;&#1604;&#1610; &#1575;&#1604;&#1605;&#1585;&#1610;</div>
