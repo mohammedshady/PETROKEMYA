@@ -939,19 +939,34 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 }
 
 
-/* ── CONTINUOUS KPI BAR ANIMATION ── */
+/* ── CONTINUOUS KPI ANIMATIONS ── */
 @keyframes kpiBarPulse {
-  0%   { opacity:1; filter:brightness(1); }
-  50%  { opacity:.82; filter:brightness(1.3); }
-  100% { opacity:1; filter:brightness(1); }
+  0%   { filter:brightness(1) drop-shadow(0 0 2px currentColor); }
+  50%  { filter:brightness(1.45) drop-shadow(0 0 8px currentColor); }
+  100% { filter:brightness(1) drop-shadow(0 0 2px currentColor); }
 }
 @keyframes kpiNumFloat {
-  0%,100% { transform:translateY(0); }
-  50%      { transform:translateY(-3px); }
+  0%,100% { transform:translateY(0) scale(1); }
+  50%      { transform:translateY(-4px) scale(1.04); }
 }
-.imp-fill { animation: barGrow 2s ease-out forwards, barPulse 2.5s ease-in-out infinite 2s, kpiBarPulse 3s ease-in-out infinite !important; }
-.sm-bar-fill { animation: barPulse 2.5s ease-in-out infinite, kpiBarPulse 3.5s ease-in-out infinite !important; }
-.cmd-kpi-val, .rm-kpi-val, .ps-val, .dc-big { animation: kpiNumFloat 3s ease-in-out infinite; }
+@keyframes barWidthPulse {
+  0%,100% { opacity:1; }
+  50%      { opacity:.75; }
+}
+@keyframes numGlow {
+  0%,100% { text-shadow:0 0 0 transparent; color:inherit; }
+  50%      { text-shadow:0 0 12px currentColor; }
+}
+/* Bar fills */
+.imp-fill  { animation: barGrow 2s ease-out forwards, kpiBarPulse 2.2s ease-in-out infinite 2s !important; }
+.sm-bar-fill { animation: kpiBarPulse 2.4s ease-in-out infinite !important; }
+/* All KPI value numbers float and glow */
+.cmd-kpi-val, .rm-kpi-val, .ps-val, .imp-now, .imp-delta,
+.sm-kpi-val, .sec-kpi-val, .mr-val, .mt-val, .dc-big { 
+  animation: kpiNumFloat 2.8s ease-in-out infinite, numGlow 3.5s ease-in-out infinite !important; 
+}
+/* SVG chart lines get a subtle glow sweep */
+canvas { filter: drop-shadow(0 0 1px rgba(0,212,255,.15)); }
 </style>
 </head>
 <body>
@@ -976,7 +991,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 <section class="sec sec-alt" id="s05">
 <div class="wrap">
   <div class="sec-head r">
-      <div class="sec-eyebrow">Section 05</div>
+      <div class="sec-eyebrow">Section 01</div>
       <h2 class="sec-h2">Human Capability <span class="cx">Command Center</span><span class="sec-h2-ar">مركز قيادة القدرات البشرية الموحد</span></h2>
       <div class="sec-tag">Unified Executive Intelligence · الذكاء التنفيذي الموحد — Leadership · Risk · Readiness · Innovation</div>
     </div>
@@ -1177,7 +1192,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 <section class="sec sec-alt" id="s01">
 <div class="wrap">
   <div class="sec-head r">
-      <div class="sec-eyebrow">Section 01</div>
+      <div class="sec-eyebrow">Section 02</div>
       <h2 class="sec-h2">Why PETROKEMYA <span class="cx">Needs This Now</span><span class="sec-h2-ar">لماذا تحتاج PETROKEMYA هذه المنظومة الآن؟</span></h2>
       <div class="sec-tag">Executive Risk Intelligence · ذكاء المخاطر التنفيذي</div>
     </div>
@@ -1275,7 +1290,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 <section class="sec" id="s02">
 <div class="wrap">
   <div class="sec-head r">
-      <div class="sec-eyebrow">Section 02</div>
+      <div class="sec-eyebrow">Section 03</div>
       <h2 class="sec-h2">Research <span class="cx">Foundation</span><span class="sec-h2-ar">أساس البحث العلمي</span></h2>
       <div class="sec-tag">Scientific Legitimacy · المشروعية العلمية</div>
     </div>
@@ -1340,7 +1355,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 <section class="sec sec-alt" id="s03">
 <div class="wrap">
   <div class="sec-head r">
-      <div class="sec-eyebrow">Section 03</div>
+      <div class="sec-eyebrow">Section 04</div>
       <h2 class="sec-h2">Human Capability <span class="cx">Transformation Journey</span><span class="sec-h2-ar">رحلة تحول القدرات البشرية المتكاملة</span></h2>
       <div class="sec-tag">One Integrated Pathway · مسار تحول واحد متكامل</div>
     </div>
@@ -1460,7 +1475,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 <section class="sec" id="s04">
 <div class="wrap">
   <div class="sec-head r">
-      <div class="sec-eyebrow">Section 04</div>
+      <div class="sec-eyebrow">Section 05</div>
       <h2 class="sec-h2">Five <span class="cx">Strategic Foundations</span><span class="sec-h2-ar">الأسس الاستراتيجية الخمسة</span></h2>
       <div class="sec-tag">Structural Stability of the System · الاستقرار الهيكلي للمنظومة</div>
     </div>
@@ -1736,7 +1751,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 <div class="wrap">
   <div class="sec-head r">
       <div class="sec-eyebrow">Section 08</div>
-      <h2 class="sec-h2"><span class="cx">Leadership Narrative</span><span class="sec-h2-ar">لماذا هذا يهمني — الرواية القيادية</span></h2>
+      <h2 class="sec-h2"><span class="cx">Leadership Narrative</span><span class="sec-h2-ar">لماذا هذا مهم — الرواية القيادية</span></h2>
       <div class="sec-tag">Why This Matters · Dr. Ali Al-Marri</div>
     </div>
   <div class="sec-quote r"><div class="sq-en">Sustainable organizational performance begins with sustainable human capability.</div><div class="sq-ar">الأداء المؤسسي المستدام يبدأ بالقدرة البشرية المستدامة.</div></div>
@@ -1918,7 +1933,7 @@ function oscillateKPIs(){
 
 // Start oscillating after 3s, every 2.5s
 setTimeout(()=>{
-  setInterval(oscillateKPIs, 1800);
+  setInterval(oscillateKPIs, 1400);
 }, 3000);
 
 // ── ANIMATED COUNTER ON SCROLL (enhanced) ─────────────────────
@@ -2125,8 +2140,11 @@ updateJubailClock();
 setInterval(updateJubailClock,1000);
 // Live year in topbar
 (function updateLiveYear(){
-  const el = document.getElementById('liveYear');
-  if(el) el.textContent = new Date().getFullYear();
+  const yr = new Date().getFullYear();
+  ['liveYear','liveYear2'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = yr;
+  });
   setTimeout(updateLiveYear, 60000);
 })();
 
