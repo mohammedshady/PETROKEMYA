@@ -947,7 +947,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 }
 @keyframes kpiNumFloat {
   0%,100% { transform:translateY(0) scale(1); }
-  50%      { transform:translateY(-4px) scale(1.04); }
+  50%      { transform:translateY(-5px) scale(1.06); }
 }
 @keyframes barWidthPulse {
   0%,100% { opacity:1; }
@@ -962,11 +962,19 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 .sm-bar-fill { animation: kpiBarPulse 2.4s ease-in-out infinite !important; }
 /* All KPI value numbers float and glow */
 .cmd-kpi-val, .rm-kpi-val, .ps-val, .imp-now, .imp-delta,
-.sm-kpi-val, .sec-kpi-val, .mr-val, .mt-val, .dc-big { 
-  animation: kpiNumFloat 2.8s ease-in-out infinite, numGlow 3.5s ease-in-out infinite !important; 
+.sm-kpi-val, .sec-kpi-val, .mr-val, .mt-val, .dc-big,
+.pstat-val, .kpi-val, .hct-val, .metric-val, .score-val,
+.prog-val, .found-kpi, .why-kpi, .bv-val, .risk-val,
+[class*="-val"], [class*="-num"], [class*="-score"],
+[class*="-pct"], [class*="-percent"] { 
+  animation: kpiNumFloat 2s ease-in-out infinite, numGlow 2.5s ease-in-out infinite !important; 
 }
-/* SVG chart lines get a subtle glow sweep */
-canvas { filter: drop-shadow(0 0 1px rgba(0,212,255,.15)); }
+/* Bar fills pulse */
+[class*="-fill"], [class*="bar-fill"], [class*="prog-fill"] {
+  animation: kpiBarPulse 2s ease-in-out infinite !important;
+}
+/* SVG charts glow */
+canvas { animation: kpiBarPulse 3s ease-in-out infinite; filter: drop-shadow(0 0 2px rgba(0,212,255,.2)); }
 </style>
 </head>
 <body>
@@ -1005,12 +1013,12 @@ canvas { filter: drop-shadow(0 0 1px rgba(0,212,255,.15)); }
       <div style="display:flex;align-items:flex-end;gap:2rem;flex-wrap:wrap;margin-bottom:1rem">
         <div>
           <div style="font-family:var(--mono);font-size:5.5rem;font-weight:700;color:transparent;background:linear-gradient(135deg,var(--cyan),var(--purple),var(--green));-webkit-background-clip:text;background-clip:text;line-height:1;animation:kpiPulse 3s ease-in-out infinite">78<span style="font-size:2rem">%</span></div>
-          <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">Overall HCHI Score · Q2 2024</div>
+          <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">Overall HCHI Score · Q2 2026</div>
           <div style="font-family:var(--mono);font-size:.75rem;color:var(--green);margin-top:.3rem;animation:arrowUp 2s ease-in-out infinite">&#9650; 11% YoY · On Track to 85% by 2030</div>
         </div>
         <div style="flex:1;min-width:200px">
           <div style="margin-bottom:.5rem">
-            <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-bottom:.25rem"><span>Current 2024</span><span style="color:var(--cyan)">78%</span></div>
+            <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-bottom:.25rem"><span>Current 2026</span><span style="color:var(--cyan)">78%</span></div>
             <div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden"><div style="width:78%;height:100%;background:linear-gradient(90deg,var(--cyan2),var(--cyan));border-radius:3px;animation:barPulse 3s ease-in-out infinite"></div></div>
           </div>
           <div style="margin-bottom:.5rem">
@@ -1543,7 +1551,7 @@ canvas { filter: drop-shadow(0 0 1px rgba(0,212,255,.15)); }
   <div class="sec-quote r"><div class="sq-en">Transformation is not an event — it is a capability evolution journey.</div><div class="sq-ar">التحوّل ليس حدثاً — بل هو رحلة تطوّر متواصلة في القدرة.</div></div>
   <div class="evo-grid r"><div class="evo-card evo-c" style="">
   <div class="evo-stage">STAGE 01</div>
-  <div class="evo-year" style="color:var(--cyan)">2024</div>
+  <div class="evo-year" style="color:var(--cyan)">2026</div>
   <div class="evo-en">Current State</div>
   <div class="evo-ar">الوضع الراهن</div>
   <div class="evo-div"></div>
@@ -1774,9 +1782,6 @@ canvas { filter: drop-shadow(0 0 1px rgba(0,212,255,.15)); }
         <div class="p-degree">PhD CANDIDATE &middot; BUSINESS ADMINISTRATION</div>
         <div class="p-exp">22 YEARS &middot; PETROCHEMICAL SECTOR &middot; PETROKEMYA</div>
       </div>
-          <div class="p-name">Ali Al-Marri · علي المري</div>
-          <div class="p-degree">PhD CANDIDATE · BUSINESS ADMINISTRATION</div>
-          <div class="p-exp">22 YEARS · PETROCHEMICAL · PETROKEMYA</div>
         </div>
         <div class="p-stats">
           <div class="pstat"><div class="pstat-val" style="color:var(--cyan)">PhD</div><div class="pstat-lbl">Business<br>Admin</div></div>
@@ -1933,7 +1938,7 @@ function oscillateKPIs(){
 
 // Start oscillating after 3s, every 2.5s
 setTimeout(()=>{
-  setInterval(oscillateKPIs, 1400);
+  setInterval(oscillateKPIs, 1200);
 }, 3000);
 
 // ── ANIMATED COUNTER ON SCROLL (enhanced) ─────────────────────
@@ -2139,13 +2144,16 @@ function updateJubailClock(){
 updateJubailClock();
 setInterval(updateJubailClock,1000);
 // Live year in topbar
-(function updateLiveYear(){
-  const yr = new Date().getFullYear();
-  ['liveYear','liveYear2'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.textContent = yr;
-  });
-  setTimeout(updateLiveYear, 60000);
+(function(){
+  function updateYear(){
+    const yr = new Date().getFullYear();
+    ['liveYear','liveYear2'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.textContent = yr;
+    });
+  }
+  updateYear();
+  setInterval(updateYear, 30000);
 })();
 
 
