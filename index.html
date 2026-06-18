@@ -939,42 +939,20 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 }
 
 
-/* ── CONTINUOUS KPI ANIMATIONS ── */
-@keyframes kpiBarPulse {
-  0%   { filter:brightness(1) drop-shadow(0 0 2px currentColor); }
-  50%  { filter:brightness(1.45) drop-shadow(0 0 8px currentColor); }
-  100% { filter:brightness(1) drop-shadow(0 0 2px currentColor); }
-}
-@keyframes kpiNumFloat {
-  0%,100% { transform:translateY(0) scale(1); }
-  50%      { transform:translateY(-5px) scale(1.06); }
-}
-@keyframes barWidthPulse {
-  0%,100% { opacity:1; }
-  50%      { opacity:.75; }
-}
+/* ── LIVE NUMBER GLOW (no movement) ── */
 @keyframes numGlow {
-  0%,100% { text-shadow:0 0 0 transparent; color:inherit; }
-  50%      { text-shadow:0 0 12px currentColor; }
+  0%,100% { text-shadow:0 0 0 transparent; }
+  50%      { text-shadow:0 0 10px currentColor; }
 }
-/* Bar fills */
-.imp-fill  { animation: barGrow 2s ease-out forwards, kpiBarPulse 2.2s ease-in-out infinite 2s !important; }
-.sm-bar-fill { animation: kpiBarPulse 2.4s ease-in-out infinite !important; }
-/* All KPI value numbers float and glow */
-.cmd-kpi-val, .rm-kpi-val, .ps-val, .imp-now, .imp-delta,
-.sm-kpi-val, .sec-kpi-val, .mr-val, .mt-val, .dc-big,
-.pstat-val, .kpi-val, .hct-val, .metric-val, .score-val,
-.prog-val, .found-kpi, .why-kpi, .bv-val, .risk-val,
-[class*="-val"], [class*="-num"], [class*="-score"],
-[class*="-pct"], [class*="-percent"] { 
-  animation: kpiNumFloat 2s ease-in-out infinite, numGlow 2.5s ease-in-out infinite !important; 
+.krow-val, .ktotal-val, .c-pct, .cmd-kpi-val, .rm-kpi-val, .ps-val,
+.pstat-val, .imp-now, .sm-kpi-val, .sec-kpi-val, .mr-val, .mt-val, .dc-big {
+  animation: numGlow 2.5s ease-in-out infinite;
 }
-/* Bar fills pulse */
-[class*="-fill"], [class*="bar-fill"], [class*="prog-fill"] {
-  animation: kpiBarPulse 2s ease-in-out infinite !important;
+/* bar fills: keep transition smooth when width changes */
+[class*="-fill"], [class*="bar-fill"], .imp-fill, .sm-bar-fill, .prog-fill {
+  transition: width .9s ease-in-out !important;
 }
-/* SVG charts glow */
-canvas { animation: kpiBarPulse 3s ease-in-out infinite; filter: drop-shadow(0 0 2px rgba(0,212,255,.2)); }
+canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
 </style>
 </head>
 <body>
@@ -986,8 +964,8 @@ canvas { animation: kpiBarPulse 3s ease-in-out infinite; filter: drop-shadow(0 0
     <div><div class="tb-name">PETROKEMYA</div><div class="tb-sub">HUMAN CAPABILITY TRANSFORMATION SYSTEM</div></div>
   </a>
   <nav class="tb-nav">
-    <a href="#s01">Why Now</a><a href="#s02">Research</a><a href="#s03">Journey</a>
-    <a href="#s04">Foundations</a><a href="#s05">Command</a><a href="#s06">Roadmap</a>
+    <a href="#s05">Command</a><a href="#s01">Why Now</a><a href="#s02">Research</a>
+    <a href="#s03">Journey</a><a href="#s04">Foundations</a><a href="#s06">Roadmap</a>
     <a href="#s07">Impact</a><a href="#s08">Profile</a>
   </nav>
   <div class="tb-right">
@@ -1894,62 +1872,101 @@ canvas { animation: kpiBarPulse 3s ease-in-out infinite; filter: drop-shadow(0 0
 
 
 // ── LIVE OSCILLATING KPI NUMBERS ──────────────────────────────
-const kpiBase = {
-  'kpi-trust': 87, 'kpi-support': 82, 'kpi-readiness': 78,
-  'kpi-knowledge': 76, 'kpi-innovation': 73, 'kpi-pipeline': 74,
-  'kpi-overall': 78
-};
-
-// Assign IDs to krow-val elements
+// ── UNIVERSAL LIVE NUMBER OSCILLATION (value changes, no movement) ──
 (function(){
-  const keys = Object.keys(kpiBase);
-  document.querySelectorAll('.krow-val').forEach((el,i)=>{
-    if(keys[i]) el.dataset.kpiKey = keys[i];
-  });
-  const overallEl = document.querySelector('.ktotal-val');
-  if(overallEl) overallEl.dataset.kpiKey = 'kpi-overall';
+  // Collect every element whose text is a percentage or plain number we want "live"
+  const liveNums = [];
+
+  function isPureNumberText(node){
+    // node is an element with a single text child that is a number (optionally % or with <sub>%</sub>)
+    return true;
+  }
+
+  function registerNumbers(){
+    liveNums.length = 0;
+    // Selector list of value elements across all sections
+    const sel = [
+      '.krow-val', '.ktotal-val', '.c-pct', '.cmd-kpi-val', '.rm-kpi-val',
+      '.ps-val', '.pstat-val', '.imp-now', '.sm-kpi-val', '.sec-kpi-val',
+      '.mr-val', '.mt-val', '.dc-big', '.kpi-val', '.hct-val', '.metric-val',
+      '.score-val', '.found-kpi', '.why-kpi', '.bv-val', '.risk-val', '.evo-pct',
+      '.gauge-val', '.stat-val', '.big-num', '.hero-stat-val'
+    ].join(',');
+
+    document.querySelectorAll(sel).forEach(el=>{
+      // Extract the numeric portion from the first text node
+      let textNode = null;
+      for(const n of el.childNodes){
+        if(n.nodeType === 3 && /\d/.test(n.textContent)){ textNode = n; break; }
+      }
+      // If no direct text node, but element text itself is just a number
+      let mode = 'textnode';
+      let raw, base, suffix='';
+      if(textNode){
+        raw = textNode.textContent;
+      } else {
+        // whole element text (may include % sign)
+        raw = el.textContent;
+        mode = 'full';
+      }
+      const m = raw.match(/(-?\d+(?:\.\d+)?)/);
+      if(!m) return;
+      base = parseFloat(m[1]);
+      if(isNaN(base) || base < 1 || base > 100000) return;
+      // detect % suffix in full-text mode
+      if(mode === 'full' && raw.includes('%')) suffix='%';
+      liveNums.push({el, textNode, base, mode, suffix, isInt: Number.isInteger(base)});
+    });
+
+    // Bars (width-based) — register separately
+    bars.length = 0;
+    document.querySelectorAll('[class*="-fill"],[class*="bar-fill"],.imp-fill,.sm-bar-fill,.prog-fill').forEach(el=>{
+      const w = el.style.width || '';
+      const mm = w.match(/([\d.]+)%/);
+      if(!mm) return;
+      const b = parseFloat(mm[1]);
+      if(b < 5 || b > 99) return;
+      bars.push({el, base:b});
+    });
+  }
+
+  const bars = [];
+
+  function tick(){
+    // Numbers — oscillate ±4% of value, keeping near base
+    liveNums.forEach(o=>{
+      const delta = (Math.random()-0.5)*8;           // ±4
+      let v = o.base + delta;
+      if(v < 0) v = 0;
+      const out = o.isInt && Math.abs(o.base) >= 10
+        ? Math.round(v)                                // keep big ints clean
+        : Math.round(v*10)/10;                         // 1 decimal otherwise
+      if(o.mode === 'textnode' && o.textNode){
+        o.textNode.textContent = out;
+      } else {
+        o.el.textContent = out + o.suffix;
+      }
+    });
+    // Bars — change actual width value ±4%
+    bars.forEach(b=>{
+      const d = (Math.random()-0.5)*8;
+      const w = Math.min(99, Math.max(5, b.base + d));
+      b.el.style.width = w.toFixed(1)+'%';
+    });
+  }
+
+  function startOsc(){
+    registerNumbers();
+    tick();
+    setInterval(tick, 1000);   // medium speed — every 1s
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=>setTimeout(startOsc, 1500));
+  } else {
+    setTimeout(startOsc, 1500);
+  }
 })();
-
-function oscillateKPIs(){
-  document.querySelectorAll('[data-kpi-key]').forEach(el=>{
-    const base = kpiBase[el.dataset.kpiKey];
-    if(!base) return;
-    // Small oscillation ±1.5
-    const delta = (Math.random()-0.5)*8;
-    const val = Math.round((base + delta)*10)/10;
-    const sub = el.querySelector('sub');
-    const subHtml = sub ? sub.outerHTML : '<sub>%</sub>';
-    // Keep sub element
-    const numPart = el.childNodes[0];
-    if(numPart && numPart.nodeType === 3){
-      numPart.textContent = val;
-    }
-  });
-
-  // Oscillate bar widths ±4%
-  document.querySelectorAll('[style*="width:"][class*="fill"], [class*="-fill"][style*="width"], .imp-fill, .sm-bar-fill, .prog-fill, [class*="bar-fill"]').forEach(el=>{
-    const m = (el.style.width||'').match(/([\d.]+)%/);
-    if(!m) return;
-    const base = parseFloat(m[1]);
-    if(base < 5 || base > 99) return;
-    const d = (Math.random()-0.5)*8;
-    el.style.width = Math.min(99, Math.max(5, base+d)).toFixed(1)+'%';
-  });
-
-  // Animate cockpit gauge pct numbers too
-  document.querySelectorAll('.c-pct').forEach(el=>{
-    const base = parseInt(el.textContent);
-    if(isNaN(base)) return;
-    const delta = (Math.random()-0.5)*6;
-    const val = Math.round((base + delta)*10)/10;
-    el.textContent = val + '%';
-  });
-}
-
-// Start oscillating after 3s, every 2.5s
-setTimeout(()=>{
-  setInterval(oscillateKPIs, 900);
-}, 3000);
 
 // ── ANIMATED COUNTER ON SCROLL (enhanced) ─────────────────────
 function animCounterSmooth(el, target, duration=2000){
@@ -2151,32 +2168,36 @@ function updateJubailClock(){
     }
   }catch(e){}
 }
-// ── LIVE CLOCK + YEAR (DOMContentLoaded guaranteed) ──
-document.addEventListener('DOMContentLoaded', function(){
-  // Year
-  function updateYear(){
-    const yr = new Date().getFullYear();
-    document.querySelectorAll('#liveYear,#liveYear2').forEach(function(el){
-      el.textContent = yr;
-    });
+// ── LIVE CLOCK + YEAR — bulletproof ──
+function refreshLive(){
+  try{
+    const now = new Date();
+    const opts = {timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,
+                  weekday:'short',day:'2-digit',month:'short',year:'numeric'};
+    const parts = new Intl.DateTimeFormat('en-GB',opts).formatToParts(now);
+    const get = t => (parts.find(p=>p.type===t)||{value:''}).value;
+    const yr = get('year') || new Date().getFullYear();
+    // clock
+    const ce = document.getElementById('jubailClock');
+    if(ce){
+      ce.textContent = get('weekday').toUpperCase()+' '+get('day')+' '+get('month').toUpperCase()+' '+yr+
+                       ' · '+get('hour')+':'+get('minute')+':'+get('second')+' AST';
+    }
+    // year pills
+    const y1 = document.getElementById('liveYear'); if(y1) y1.textContent = yr;
+    const y2 = document.getElementById('liveYear2'); if(y2) y2.textContent = yr;
+  }catch(e){
+    // fallback: plain local time
+    const ce = document.getElementById('jubailClock');
+    if(ce) ce.textContent = 'JUBAIL · ' + new Date().toLocaleTimeString();
+    const y1 = document.getElementById('liveYear'); if(y1) y1.textContent = new Date().getFullYear();
   }
-  updateYear();
-  setInterval(updateYear, 30000);
-
-  // Clock
-  updateJubailClock();
-  setInterval(updateJubailClock, 1000);
-});
-// Also run immediately in case DOM already ready
-(function(){
-  try {
-    var yr = new Date().getFullYear();
-    var el = document.getElementById('liveYear');
-    if(el) el.textContent = yr;
-    var el2 = document.getElementById('liveYear2');
-    if(el2) el2.textContent = yr;
-  } catch(e){}
-})();
+}
+refreshLive();
+setInterval(refreshLive, 1000);
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', refreshLive);
+}
 
 
 // ── PROFILE VIDEO: click to open full modal with audio ──
