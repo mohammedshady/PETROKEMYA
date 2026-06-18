@@ -1871,123 +1871,114 @@ canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
 <script>
 
 
-// ── LIVE OSCILLATING KPI NUMBERS ──────────────────────────────
-// ── UNIVERSAL LIVE NUMBER OSCILLATION (value changes, no movement) ──
+// ── LIVE OSCILLATING STATISTICS (all sections, value-change only) ──
 (function(){
-  // Collect every element whose text is a percentage or plain number we want "live"
-  const liveNums = [];
+  var targets = [];   // {node, template, base, isPct}
+  var bars = [];      // {el, base}
 
-  function isPureNumberText(node){
-    // node is an element with a single text child that is a number (optionally % or with <sub>%</sub>)
-    return true;
+  // Words that mark a number as a LABEL, not a live stat — skip these
+  function isSkippableContext(text){
+    return /\b(SECTION|STAGE|INDEX|FOUNDATION|PILLAR|PHASE|YEAR|Q[1-4])\b/i.test(text)
+        || /\b(19|20)\d{2}\b/.test(text)            // years like 2026, 2030
+        || /\bAST\b/.test(text)
+        || /[#№]\s*\d/.test(text);                   // ranks like #1
   }
 
-  function registerNumbers(){
-    liveNums.length = 0;
-    // Selector list of value elements across all sections
-    const sel = [
-      '.krow-val', '.ktotal-val', '.c-pct', '.cmd-kpi-val', '.rm-kpi-val',
-      '.ps-val', '.pstat-val', '.imp-now', '.sm-kpi-val', '.sec-kpi-val',
-      '.mr-val', '.mt-val', '.dc-big', '.kpi-val', '.hct-val', '.metric-val',
-      '.score-val', '.found-kpi', '.why-kpi', '.bv-val', '.risk-val', '.evo-pct',
-      '.gauge-val', '.stat-val', '.big-num', '.hero-stat-val',
-      '.ck-pct', '.jf-kpi-val', '.ck-gauge-text', '.rh-exposure',
-      '.imp-val', '.imp-pct', '.found-val', '.why-val', '.cockpit-val',
-      '.gauge-pct', '.cmd-val', '.cmd-pct', '.dc-val', '.dc-pct'
-    ].join(',');
+  // Build a template from a text node, replacing each oscillatable % number with a token
+  function buildFromTextNode(node){
+    var raw = node.nodeValue;
+    if(!raw || !/\d/.test(raw)) return;
+    if(isSkippableContext(raw)) return;
 
-    document.querySelectorAll(sel).forEach(el=>{
-      // Extract the numeric portion from the first text node
-      let textNode = null;
-      for(const n of el.childNodes){
-        if(n.nodeType === 3 && /\d/.test(n.textContent)){ textNode = n; break; }
-      }
-      // If no direct text node, but element text itself is just a number
-      let mode = 'textnode';
-      let raw, base, suffix='';
-      if(textNode){
-        raw = textNode.textContent;
-      } else {
-        // whole element text (may include % sign)
-        raw = el.textContent;
-        mode = 'full';
-      }
-      const m = raw.match(/(-?\d+(?:\.\d+)?)/);
-      if(!m) return;
-      base = parseFloat(m[1]);
-      if(isNaN(base) || base < 1 || base > 100000) return;
-      // detect % suffix in full-text mode
-      if(mode === 'full' && raw.includes('%')) suffix='%';
-      liveNums.push({el, textNode, base, mode, suffix, isInt: Number.isInteger(base)});
+    // Only oscillate numbers that are followed by % (percentages) — these are the live KPIs
+    var pctRegex = /(\d{1,3}(?:\.\d+)?)\s*%/g;
+    if(!pctRegex.test(raw)) return;
+    pctRegex.lastIndex = 0;
+
+    var bases = [];
+    var template = raw.replace(pctRegex, function(match, num){
+      var b = parseFloat(num);
+      // realistic KPI range only
+      if(b < 1 || b > 100){ bases.push(null); return match; }
+      bases.push(b);
+      return '\u0000'+(bases.length-1)+'\u0001%';   // token: \0 index \1 %
     });
 
-    // GENERIC PASS: catch any element ending in -val, -pct, -kpi with a numeric leaf
-    document.querySelectorAll('[class*="-val"],[class*="-pct"],[class*="-kpi"],[class*="kpi-"],[class*="-num"],[class*="-score"]').forEach(el=>{
-      // skip if already registered
-      if(liveNums.some(o=>o.el===el)) return;
-      // only leaf-ish elements (no child element with its own number)
-      if(el.querySelector('[class*="-val"],[class*="-pct"]')) return;
-      let textNode=null;
-      for(const n of el.childNodes){
-        if(n.nodeType===3 && /\d/.test(n.textContent)){ textNode=n; break; }
-      }
-      let raw, mode='textnode', suffix='';
-      if(textNode){ raw=textNode.textContent; }
-      else { raw=el.textContent; mode='full'; if(raw.includes('%')) suffix='%'; }
-      const m=raw.match(/(-?\d+(?:\.\d+)?)/);
-      if(!m) return;
-      const base=parseFloat(m[1]);
-      if(isNaN(base)||base<1||base>100000) return;
-      liveNums.push({el, textNode, base, mode, suffix, isInt:Number.isInteger(base)});
-    });
+    if(bases.some(function(b){ return b !== null; })){
+      targets.push({node:node, template:template, bases:bases});
+    }
+  }
 
-    // Bars (width-based) — register separately
+  // Walk all text nodes inside <section> and command/cockpit areas
+  function collect(){
+    targets.length = 0;
     bars.length = 0;
-    document.querySelectorAll('[class*="-fill"],[class*="bar-fill"],.imp-fill,.sm-bar-fill,.prog-fill').forEach(el=>{
-      const w = el.style.width || '';
-      const mm = w.match(/([\d.]+)%/);
-      if(!mm) return;
-      const b = parseFloat(mm[1]);
+
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: function(n){
+        // skip script/style/nav/topbar/ticker
+        var p = n.parentNode;
+        while(p && p !== document.body){
+          var tag = (p.tagName||'').toUpperCase();
+          if(tag === 'SCRIPT' || tag === 'STYLE') return NodeFilter.FILTER_REJECT;
+          var cls = (p.className && p.className.toString) ? p.className.toString() : '';
+          if(/topbar|tb-|ticker|live-pill|footer/.test(cls)) return NodeFilter.FILTER_REJECT;
+          p = p.parentNode;
+        }
+        return /\d\s*%/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    var n;
+    while((n = walker.nextNode())){ buildFromTextNode(n); }
+
+    // Bars — any element with inline width:NN%
+    document.querySelectorAll('[style*="width"]').forEach(function(el){
+      var m = (el.style.width||'').match(/([\d.]+)%/);
+      if(!m) return;
+      var b = parseFloat(m[1]);
       if(b < 5 || b > 99) return;
-      bars.push({el, base:b});
+      // only animate bar-like fills, not layout columns
+      var cls = (el.className||'').toString();
+      if(!/fill|bar|prog|gauge|track/i.test(cls)) return;
+      bars.push({el:el, base:b});
     });
   }
 
-  const bars = [];
+  function jitter(base, amp){
+    var v = base + (Math.random()-0.5)*amp*2;   // ±amp
+    if(v < 0) v = 0;
+    if(v > 100) v = 100;
+    return v;
+  }
 
   function tick(){
-    // Numbers — oscillate ±4% of value, keeping near base
-    liveNums.forEach(o=>{
-      const delta = (Math.random()-0.5)*8;           // ±4
-      let v = o.base + delta;
-      if(v < 0) v = 0;
-      const out = o.isInt && Math.abs(o.base) >= 10
-        ? Math.round(v)                                // keep big ints clean
-        : Math.round(v*10)/10;                         // 1 decimal otherwise
-      if(o.mode === 'textnode' && o.textNode){
-        o.textNode.textContent = out;
-      } else {
-        o.el.textContent = out + o.suffix;
+    // Numbers
+    targets.forEach(function(t){
+      var out = t.template;
+      for(var i=0;i<t.bases.length;i++){
+        var b = t.bases[i];
+        var val = (b === null) ? null : jitter(b, 4);       // ±4%
+        var disp = (val === null) ? '' : (Number.isInteger(b) ? Math.round(val) : Math.round(val*10)/10);
+        out = out.replace('\u0000'+i+'\u0001', (val===null?'':disp));
       }
+      try { t.node.nodeValue = out; } catch(e){}
     });
-    // Bars — change actual width value ±4%
-    bars.forEach(b=>{
-      const d = (Math.random()-0.5)*8;
-      const w = Math.min(99, Math.max(5, b.base + d));
-      b.el.style.width = w.toFixed(1)+'%';
+    // Bars
+    bars.forEach(function(bar){
+      bar.el.style.width = jitter(bar.base, 4).toFixed(1)+'%';
     });
   }
 
-  function startOsc(){
-    registerNumbers();
+  function boot(){
+    collect();
     tick();
-    setInterval(tick, 1000);   // medium speed — every 1s
+    setInterval(tick, 1000);   // medium speed
   }
 
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', ()=>setTimeout(startOsc, 1500));
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 1500); });
   } else {
-    setTimeout(startOsc, 1500);
+    setTimeout(boot, 1500);
   }
 })();
 
