@@ -128,7 +128,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
   border-radius:20px;animation:pillGlow 3s ease-in-out infinite}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);
   animation:dotPulse 1.5s ease-in-out infinite}
-.tb-time{font-family:var(--mono);font-size:.62rem;color:var(--muted)}
+.tb-time{font-family:var(--mono);font-size:.66rem;color:var(--cyan);font-weight:600;white-space:nowrap}
 
 /* ── TICKER ─────────────────────────────────────── */
 .ticker-wrap{position:sticky;top:56px;z-index:200;overflow:hidden;height:34px;
@@ -1890,7 +1890,10 @@ canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
       '.ps-val', '.pstat-val', '.imp-now', '.sm-kpi-val', '.sec-kpi-val',
       '.mr-val', '.mt-val', '.dc-big', '.kpi-val', '.hct-val', '.metric-val',
       '.score-val', '.found-kpi', '.why-kpi', '.bv-val', '.risk-val', '.evo-pct',
-      '.gauge-val', '.stat-val', '.big-num', '.hero-stat-val'
+      '.gauge-val', '.stat-val', '.big-num', '.hero-stat-val',
+      '.ck-pct', '.jf-kpi-val', '.ck-gauge-text', '.rh-exposure',
+      '.imp-val', '.imp-pct', '.found-val', '.why-val', '.cockpit-val',
+      '.gauge-pct', '.cmd-val', '.cmd-pct', '.dc-val', '.dc-pct'
     ].join(',');
 
     document.querySelectorAll(sel).forEach(el=>{
@@ -1916,6 +1919,26 @@ canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
       // detect % suffix in full-text mode
       if(mode === 'full' && raw.includes('%')) suffix='%';
       liveNums.push({el, textNode, base, mode, suffix, isInt: Number.isInteger(base)});
+    });
+
+    // GENERIC PASS: catch any element ending in -val, -pct, -kpi with a numeric leaf
+    document.querySelectorAll('[class*="-val"],[class*="-pct"],[class*="-kpi"],[class*="kpi-"],[class*="-num"],[class*="-score"]').forEach(el=>{
+      // skip if already registered
+      if(liveNums.some(o=>o.el===el)) return;
+      // only leaf-ish elements (no child element with its own number)
+      if(el.querySelector('[class*="-val"],[class*="-pct"]')) return;
+      let textNode=null;
+      for(const n of el.childNodes){
+        if(n.nodeType===3 && /\d/.test(n.textContent)){ textNode=n; break; }
+      }
+      let raw, mode='textnode', suffix='';
+      if(textNode){ raw=textNode.textContent; }
+      else { raw=el.textContent; mode='full'; if(raw.includes('%')) suffix='%'; }
+      const m=raw.match(/(-?\d+(?:\.\d+)?)/);
+      if(!m) return;
+      const base=parseFloat(m[1]);
+      if(isNaN(base)||base<1||base>100000) return;
+      liveNums.push({el, textNode, base, mode, suffix, isInt:Number.isInteger(base)});
     });
 
     // Bars (width-based) — register separately
@@ -2231,5 +2254,49 @@ if(document.readyState === 'loading'){
 
 
 </script>
+
+<script>
+/* ===== INDEPENDENT LIVE CLOCK + YEAR (standalone strategy) ===== */
+(function(){
+  function pad(n){ return String(n).padStart(2,'0'); }
+  var DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  var MON=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+  function render(){
+    var now;
+    // Get Riyadh/AST time (UTC+3)
+    try {
+      now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Riyadh'}));
+    } catch(e){
+      now = new Date();
+    }
+    var yr = now.getFullYear();
+    var stamp = DAYS[now.getDay()]+' '+pad(now.getDate())+' '+MON[now.getMonth()]+' '+yr
+              +' \u00B7 '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds())+' AST';
+
+    var clk = document.getElementById('jubailClock');
+    if(clk){ clk.textContent = stamp; }
+
+    var y1 = document.getElementById('liveYear');
+    if(y1){ y1.textContent = yr; }
+    var y2 = document.getElementById('liveYear2');
+    if(y2){ y2.textContent = yr; }
+  }
+
+  function boot(){
+    render();
+    setInterval(render, 1000);
+  }
+
+  if(document.readyState === 'complete' || document.readyState === 'interactive'){
+    boot();
+  } else {
+    document.addEventListener('DOMContentLoaded', boot);
+  }
+  // extra safety: also fire after full load
+  window.addEventListener('load', render);
+})();
+</script>
+
 </body>
 </html>
