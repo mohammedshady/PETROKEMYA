@@ -1746,9 +1746,10 @@ canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
       <div class="p-card">
         <div class="p-top">
           <div class="video-frame-wrap" id="videoWrap" style="cursor:pointer;">
-          <video id="profileVideo" autoplay muted loop playsinline
+          <video id="profileVideo" autoplay muted loop playsinline preload="auto"
             style="width:200px;height:200px;border-radius:50%;object-fit:cover;position:relative;z-index:1;display:block;margin:0 auto;border:2px solid var(--cyan);box-shadow:0 0 20px rgba(0,212,255,.35);">
-            <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/q_auto/f_auto/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
+            <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
+            <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/ac_aac/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
           </video>
           <div id="videoPlayHint" style="position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,0);transition:background .2s;pointer-events:none;">
             <div id="videoPlayIcon" style="opacity:0;transition:opacity .2s;background:rgba(0,212,255,.9);border-radius:50%;width:48px;height:48px;display:grid;place-items:center;box-shadow:0 0 20px rgba(0,212,255,.5);">
@@ -1756,7 +1757,7 @@ canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
             </div>
           </div>
         </div>
-        <div id="soundBadge" style="display:none;margin:.6rem auto 0;width:max-content;font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#031018;font-weight:700;border:1px solid var(--cyan);background:var(--cyan);padding:.32rem .95rem;border-radius:20px;cursor:pointer;box-shadow:0 0 18px rgba(0,212,255,.55);animation:numGlow 2s ease-in-out infinite;">&#128266; TAP FOR SOUND</div>
+        <div id="soundBadge" style="margin:.6rem auto 0;width:max-content;font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#031018;font-weight:700;border:1px solid var(--cyan);background:var(--cyan);padding:.32rem .95rem;border-radius:20px;cursor:pointer;box-shadow:0 0 18px rgba(0,212,255,.55);user-select:none;">&#128266; SOUND OFF &mdash; TAP</div>
         <div class="p-name">Ali Al-Marri &middot; &#1593;&#1604;&#1610; &#1575;&#1604;&#1605;&#1585;&#1610;</div>
         <div class="p-degree">PhD CANDIDATE &middot; BUSINESS ADMINISTRATION</div>
         <div class="p-exp">22 YEARS &middot; PETROCHEMICAL SECTOR &middot; PETROKEMYA</div>
@@ -1865,7 +1866,8 @@ canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
   <div style="position:relative;width:min(94vw,880px);border:1px solid rgba(0,212,255,.3);box-shadow:0 0 80px rgba(0,212,255,.2);background:#030810;">
     <button id="closeProfileModal" style="position:absolute;top:-44px;left:0;font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:#94A3B8;background:#0a1628;border:1px solid rgba(0,212,255,.2);cursor:pointer;padding:.4rem 1.1rem;letter-spacing:.1em;transition:all .15s;" onmouseover="this.style.color='#00D4FF';this.style.borderColor='#00D4FF'" onmouseout="this.style.color='#94A3B8';this.style.borderColor='rgba(0,212,255,.2)'">✕ &nbsp;CLOSE</button>
     <video id="profileModalVid" controls style="width:100%;display:block;max-height:86vh;object-fit:contain;background:#000;">
-      <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/q_auto/f_auto/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
+      <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
+      <source src="https://res.cloudinary.com/dwtlf9n49/video/upload/ac_aac/v1781326985/WhatsApp_Video_2026-06-13_at_7.42.28_AM_wcay0n.mp4" type="video/mp4">
     </video>
   </div>
 </div>
@@ -2215,93 +2217,126 @@ if(document.readyState === 'loading'){
 }
 
 
-// ── PROFILE VIDEO: audio on scroll-into-view + click to open modal ──
+// ── PROFILE VIDEO: real audio-track detection + scroll-into-view sound ──
 (function(){
-  const wrap    = document.getElementById('videoWrap');
-  const hint    = document.getElementById('videoPlayHint');
-  const icon    = document.getElementById('videoPlayIcon');
-  const vid     = document.getElementById('profileVideo');
-  const badge   = document.getElementById('soundBadge');
-  const overlay = document.getElementById('profileVideoModal');
-  const mv      = document.getElementById('profileModalVid');
-  const closeBtn= document.getElementById('closeProfileModal');
+  var wrap    = document.getElementById('videoWrap');
+  var hint    = document.getElementById('videoPlayHint');
+  var icon    = document.getElementById('videoPlayIcon');
+  var vid     = document.getElementById('profileVideo');
+  var badge   = document.getElementById('soundBadge');
+  var overlay = document.getElementById('profileVideoModal');
+  var mv      = document.getElementById('profileModalVid');
+  var closeBtn= document.getElementById('closeProfileModal');
   if(!wrap||!overlay||!mv||!vid) return;
 
-  let inView = false;       // is the video on screen?
-  let unlocked = false;     // has the user made any gesture yet?
-  let modalOpen = false;
+  var inView = false, modalOpen = false, wantSound = false;
+  var audioVerdict = null;   // true = has audio, false = none, null = unknown yet
 
-  function showBadge(show){
-    if(badge) badge.style.display = show ? 'block' : 'none';
+  // ---- Detect whether the source actually carries an audio track ----
+  function detectAudio(){
+    if(typeof vid.mozHasAudio === 'boolean') return vid.mozHasAudio;                  // Firefox
+    if(vid.audioTracks && typeof vid.audioTracks.length === 'number') return vid.audioTracks.length > 0;
+    if(typeof vid.webkitAudioDecodedByteCount === 'number'){                           // Chrome / Safari
+      return vid.webkitAudioDecodedByteCount > 0 ? true : null;  // 0 may just mean "not decoded yet"
+    }
+    return null;
   }
 
-  // Try to turn sound on, then VERIFY it actually took effect.
-  function tryUnmute(){
-    if(modalOpen) return false;
-    vid.muted = false;
-    vid.volume = 1.0;
-    var p = vid.play();
-    if(p && p.catch){ p.catch(function(){}); }
-    // The video is already playing, so play() resolves even when the browser
-    // silently refuses to unmute. Verify the real state a moment later.
+  function setBadge(state){
+    if(!badge) return;
+    if(state === 'noaudio'){
+      badge.innerHTML = '\u26A0 NO AUDIO TRACK IN VIDEO FILE';
+      badge.style.background = 'transparent';
+      badge.style.color = '#F59E0B';
+      badge.style.borderColor = '#F59E0B';
+      badge.style.boxShadow = 'none';
+      badge.style.cursor = 'default';
+    } else if(state === 'on'){
+      badge.innerHTML = '\uD83D\uDD0A SOUND ON \u2014 TAP TO MUTE';
+      badge.style.background = 'transparent';
+      badge.style.color = 'var(--cyan)';
+      badge.style.borderColor = 'var(--cyan)';
+      badge.style.boxShadow = 'none';
+      badge.style.cursor = 'pointer';
+    } else {
+      badge.innerHTML = '\uD83D\uDD07 SOUND OFF \u2014 TAP';
+      badge.style.background = 'var(--cyan)';
+      badge.style.color = '#031018';
+      badge.style.borderColor = 'var(--cyan)';
+      badge.style.boxShadow = '0 0 18px rgba(0,212,255,.55)';
+      badge.style.cursor = 'pointer';
+    }
+  }
+
+  // Probe: briefly play unmuted to let the browser decode audio bytes, then judge.
+  function probeAudio(){
+    var v = detectAudio();
+    if(v === true){ audioVerdict = true; return; }
+    if(v === false){ audioVerdict = false; setBadge('noaudio'); return; }
+    // unknown — re-check after some playback
     setTimeout(function(){
-      if(modalOpen) return;
-      if(vid.muted || vid.paused){
-        // blocked — keep it playing silently and ask for one tap
-        vid.muted = true;
-        vid.play().catch(function(){});
-        showBadge(inView);
-      } else {
-        showBadge(false);
-      }
-    }, 120);
-    return true;
+      var v2 = detectAudio();
+      if(v2 === false){ audioVerdict = false; setBadge('noaudio'); }
+      else if(v2 === true){ audioVerdict = true; }
+    }, 2500);
   }
+  vid.addEventListener('loadeddata', probeAudio);
+  if(vid.readyState >= 2) probeAudio();
 
-  function muteVideo(){
-    vid.muted = true;
-    showBadge(false);
-  }
-
-  // ── Scroll into view → sound on, out of view → sound off ──
-  if('IntersectionObserver' in window){
-    const io = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){
-        inView = e.isIntersecting && e.intersectionRatio >= 0.5;
-        if(inView){ tryUnmute(); }
-        else { muteVideo(); }
-      });
-    }, { threshold: [0, 0.5, 1] });
-    io.observe(wrap);
-  }
-
-  // ── First real user gesture unlocks audio playback ──
-  function unlock(){
-    if(unlocked) return;
-    unlocked = true;
-    if(inView) tryUnmute();
-  }
-  ['pointerdown','touchstart','keydown'].forEach(function(ev){
-    document.addEventListener(ev, unlock, { once:true, passive:true });
-  });
-
-  // Badge click = explicit gesture, always works
-  if(badge){
-    badge.addEventListener('click', function(e){
-      e.stopPropagation();
-      e.preventDefault();
-      unlocked = true;
+  function applySound(){
+    if(modalOpen) return;
+    if(audioVerdict === false){ setBadge('noaudio'); return; }
+    if(wantSound && inView){
       vid.muted = false;
       vid.volume = 1.0;
+      var p = vid.play(); if(p && p.catch) p.catch(function(){});
+      setTimeout(function(){
+        if(modalOpen) return;
+        if(vid.muted){                 // browser refused
+          setBadge('off');
+        } else {
+          setBadge('on');
+          if(detectAudio() === false){ audioVerdict = false; setBadge('noaudio'); }
+        }
+      }, 150);
+    } else {
+      vid.muted = true;
       vid.play().catch(function(){});
-      setTimeout(function(){ showBadge(vid.muted); }, 120);
+      if(audioVerdict !== false) setBadge('off');
+    }
+  }
+
+  // Scroll into view → try sound (if user has opted in); out of view → mute
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        inView = e.isIntersecting && e.intersectionRatio >= 0.4;
+        applySound();
+      });
+    }, { threshold:[0,0.4,1] }).observe(wrap);
+  }
+
+  // Any first gesture on the page counts as opting in to sound
+  ['pointerdown','touchstart','keydown'].forEach(function(ev){
+    document.addEventListener(ev, function(){
+      if(!wantSound){ wantSound = true; applySound(); }
+    }, { once:true, passive:true });
+  });
+
+  // Explicit toggle
+  if(badge){
+    badge.addEventListener('click', function(e){
+      e.stopPropagation(); e.preventDefault();
+      if(audioVerdict === false) return;
+      wantSound = !wantSound;
+      applySound();
     });
   }
 
-  // ── Modal ──
+  // ---- Modal ----
   function openModal(){
     modalOpen = true;
-    muteVideo();                 // avoid double audio
+    vid.muted = true;
     overlay.style.display='flex';
     mv.muted=false; mv.volume=1.0; mv.currentTime=0;
     mv.play().catch(function(){});
@@ -2310,7 +2345,7 @@ if(document.readyState === 'loading'){
     modalOpen = false;
     overlay.style.display='none';
     mv.pause(); mv.currentTime=0;
-    if(inView) tryUnmute();      // hand audio back to the inline video
+    applySound();
   }
 
   wrap.addEventListener('click', openModal);
