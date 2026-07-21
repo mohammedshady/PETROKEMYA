@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>PETROKEMYA · Human Capability Transformation System</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><text y=%2226%22 font-size=%2226%22>%E2%9A%A1</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 
@@ -2192,7 +2193,7 @@ if(document.readyState === 'loading'){
   var TAG='[video]';
   function log(){ var a=[].slice.call(arguments); a.unshift(TAG); console.log.apply(console,a); }
 
-  log('build v3 — script running');
+  log('build v4 — script running');
 
   var vid     = document.getElementById('profileVideo');
   var wrap    = document.getElementById('videoWrap');
@@ -2205,94 +2206,101 @@ if(document.readyState === 'loading'){
   log('elements:', {video:!!vid, wrap:!!wrap, overlay:!!overlay, modalVideo:!!mv});
   if(!vid || !wrap){ console.error(TAG,'ABORT — video or wrap missing'); return; }
 
-  log('source:', vid.currentSrc || (vid.querySelector('source')||{}).src);
+  var inView=false, modalOpen=false, hasSound=false;
 
-  var inView=false, modalOpen=false, unlocked=false;
-
-  function audioInfo(){
-    return {
-      muted: vid.muted,
-      paused: vid.paused,
-      volume: vid.volume,
-      readyState: vid.readyState,
-      mozHasAudio: vid.mozHasAudio,
-      audioTracks: vid.audioTracks ? vid.audioTracks.length : 'n/a',
-      decodedAudioBytes: vid.webkitAudioDecodedByteCount
-    };
+  function info(){
+    return { muted:vid.muted, paused:vid.paused, readyState:vid.readyState,
+             decodedAudioBytes:vid.webkitAudioDecodedByteCount };
   }
 
-  vid.addEventListener('loadedmetadata', function(){ log('loadedmetadata', audioInfo()); });
-  vid.addEventListener('error', function(){ console.error(TAG,'video error', vid.error); });
+  vid.addEventListener('loadedmetadata',function(){ log('loadedmetadata', info()); });
+  vid.addEventListener('error',function(){ console.error(TAG,'video error', vid.error); });
 
+  // Try to enable sound. Safe to call as often as we like: if the browser
+  // refuses, we silently fall back to muted playback and try again later.
   function soundOn(why){
-    if(modalOpen) return;
-    log('soundOn attempt (' + why + ')', audioInfo());
+    if(modalOpen || !inView) return;
+    if(!vid.muted){ hasSound=true; return; }   // already on
     vid.muted=false;
     vid.volume=1.0;
     var p=vid.play();
     if(p && p.then){
-      p.then(function(){ log('play() resolved', audioInfo()); })
-       .catch(function(e){ log('play() rejected:', e && e.name, '- keeping muted'); vid.muted=true; vid.play().catch(function(){}); });
+      p.then(function(){
+        setTimeout(function(){
+          if(modalOpen) return;
+          if(vid.muted){ log('blocked ('+why+') — will retry on next interaction'); }
+          else { hasSound=true; log('SOUND ON ('+why+')', info()); }
+        },250);
+      }).catch(function(e){
+        log('play rejected ('+why+'):', e && e.name);
+        vid.muted=true; vid.play().catch(function(){});
+      });
     }
-    setTimeout(function(){ log('state 300ms after unmute', audioInfo()); },300);
   }
 
   function soundOff(why){
     if(vid.muted) return;
-    log('soundOff (' + why + ')');
+    log('sound off ('+why+')');
     vid.muted=true;
+    hasSound=false;
   }
 
-  // Scroll into view -> sound on, out of view -> sound off
+  // Scroll into view -> always ATTEMPT sound (no unlock gate)
   if('IntersectionObserver' in window){
     new IntersectionObserver(function(es){
       es.forEach(function(e){
         var now = e.isIntersecting && e.intersectionRatio>=0.4;
         if(now===inView) return;
         inView=now;
-        log('inView =', inView, 'unlocked =', unlocked);
-        if(inView && unlocked) soundOn('scrolled into view');
-        else if(!inView) soundOff('scrolled out of view');
+        log('inView =', inView);
+        if(inView) soundOn('scrolled into view');
+        else soundOff('scrolled out of view');
       });
     },{threshold:[0,0.4,1]}).observe(wrap);
     log('IntersectionObserver attached');
-  } else {
-    console.warn(TAG,'IntersectionObserver unsupported');
   }
 
-  // First user gesture anywhere unlocks audio (browser requirement)
-  ['pointerdown','touchstart','keydown'].forEach(function(ev){
-    document.addEventListener(ev,function(){
-      if(unlocked) return;
-      unlocked=true;
-      log('audio unlocked by user gesture:',ev);
-      if(inView) soundOn('gesture while in view');
-    },{once:true,passive:true});
+  // Retry on ANY interaction (not once) — the first successful gesture wins.
+  ['pointerdown','pointerup','touchstart','keydown','wheel','scroll'].forEach(function(ev){
+    (ev==='scroll'?window:document).addEventListener(ev,function(){
+      if(inView && !modalOpen && vid.muted) soundOn('interaction:'+ev);
+    },{passive:true});
   });
 
-  // Modal
+  // Hovering the video is also a good moment to retry
+  wrap.addEventListener('mouseenter',function(){
+    if(hint)hint.style.background='rgba(0,0,0,.35)';
+    if(icon)icon.style.opacity='1';
+    soundOn('hover');
+  });
+  wrap.addEventListener('mouseleave',function(){
+    if(hint)hint.style.background='rgba(0,0,0,0)';
+    if(icon)icon.style.opacity='0';
+  });
+
+  // ---- Modal (click the video to open it) ----
   function openModal(){
     log('modal open');
-    modalOpen=true; soundOff('modal opened');
+    modalOpen=true;
+    soundOff('modal opened');
     if(overlay) overlay.style.display='flex';
-    if(mv){ mv.muted=false; mv.volume=1.0; mv.currentTime=0; mv.play().catch(function(e){ log('modal play rejected',e&&e.name); }); }
+    if(mv){ mv.muted=false; mv.volume=1.0; mv.currentTime=0;
+            mv.play().catch(function(e){ log('modal play rejected', e && e.name); }); }
   }
   function closeModal(){
     log('modal close');
     modalOpen=false;
     if(overlay) overlay.style.display='none';
     if(mv){ mv.pause(); mv.currentTime=0; }
-    if(inView && unlocked) soundOn('modal closed');
+    soundOn('modal closed');
   }
 
   wrap.addEventListener('click', openModal);
-  wrap.addEventListener('mouseenter',function(){ if(hint)hint.style.background='rgba(0,0,0,.35)'; if(icon)icon.style.opacity='1'; });
-  wrap.addEventListener('mouseleave',function(){ if(hint)hint.style.background='rgba(0,0,0,0)'; if(icon)icon.style.opacity='0'; });
   if(overlay) overlay.addEventListener('click',function(e){ if(e.target===this) closeModal(); });
   if(closeBtn) closeBtn.addEventListener('click', closeModal);
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal(); });
 
-  log('setup complete — click anywhere once, then scroll to the video');
+  log('setup complete');
 })();
 </script>
 </body>
