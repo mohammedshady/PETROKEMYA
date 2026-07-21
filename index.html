@@ -2193,7 +2193,7 @@ if(document.readyState === 'loading'){
   var TAG='[video]';
   function log(){ var a=[].slice.call(arguments); a.unshift(TAG); console.log.apply(console,a); }
 
-  log('build v4 — script running');
+  log('build v5 — script running');
 
   var vid     = document.getElementById('profileVideo');
   var wrap    = document.getElementById('videoWrap');
@@ -2203,38 +2203,36 @@ if(document.readyState === 'loading'){
   var mv      = document.getElementById('profileModalVid');
   var closeBtn= document.getElementById('closeProfileModal');
 
-  log('elements:', {video:!!vid, wrap:!!wrap, overlay:!!overlay, modalVideo:!!mv});
   if(!vid || !wrap){ console.error(TAG,'ABORT — video or wrap missing'); return; }
 
-  var inView=false, modalOpen=false, hasSound=false;
+  var inView=false, modalOpen=false;
 
-  function info(){
-    return { muted:vid.muted, paused:vid.paused, readyState:vid.readyState,
-             decodedAudioBytes:vid.webkitAudioDecodedByteCount };
+  // Chrome/Edge expose whether the user has ever activated the document.
+  // Attempting to unmute before that ALWAYS fails and pauses the video,
+  // so we simply do not try until activation exists.
+  function canPlayAudio(){
+    try{
+      if(navigator.userActivation && typeof navigator.userActivation.hasBeenActive === 'boolean'){
+        return navigator.userActivation.hasBeenActive;
+      }
+    }catch(e){}
+    return activatedFallback;   // browsers without the API
   }
+  var activatedFallback=false;
 
-  vid.addEventListener('loadedmetadata',function(){ log('loadedmetadata', info()); });
-  vid.addEventListener('error',function(){ console.error(TAG,'video error', vid.error); });
-
-  // Try to enable sound. Safe to call as often as we like: if the browser
-  // refuses, we silently fall back to muted playback and try again later.
   function soundOn(why){
     if(modalOpen || !inView) return;
-    if(!vid.muted){ hasSound=true; return; }   // already on
+    if(!vid.muted) return;                 // already audible
+    if(!canPlayAudio()){ return; }         // browser would refuse — don't disturb playback
     vid.muted=false;
     vid.volume=1.0;
     var p=vid.play();
     if(p && p.then){
-      p.then(function(){
-        setTimeout(function(){
-          if(modalOpen) return;
-          if(vid.muted){ log('blocked ('+why+') — will retry on next interaction'); }
-          else { hasSound=true; log('SOUND ON ('+why+')', info()); }
-        },250);
-      }).catch(function(e){
-        log('play rejected ('+why+'):', e && e.name);
-        vid.muted=true; vid.play().catch(function(){});
-      });
+      p.then(function(){ log('SOUND ON ('+why+')'); })
+       .catch(function(e){
+          log('unmute refused ('+why+'):', e && e.name);
+          vid.muted=true; vid.play().catch(function(){});
+       });
     }
   }
 
@@ -2242,32 +2240,47 @@ if(document.readyState === 'loading'){
     if(vid.muted) return;
     log('sound off ('+why+')');
     vid.muted=true;
-    hasSound=false;
   }
 
-  // Scroll into view -> always ATTEMPT sound (no unlock gate)
+  vid.addEventListener('error',function(){ console.error(TAG,'video error', vid.error); });
+
+  // Scroll into view -> sound on (only if the browser already allows audio)
   if('IntersectionObserver' in window){
     new IntersectionObserver(function(es){
       es.forEach(function(e){
         var now = e.isIntersecting && e.intersectionRatio>=0.4;
         if(now===inView) return;
         inView=now;
-        log('inView =', inView);
         if(inView) soundOn('scrolled into view');
         else soundOff('scrolled out of view');
       });
     },{threshold:[0,0.4,1]}).observe(wrap);
-    log('IntersectionObserver attached');
   }
 
-  // Retry on ANY interaction (not once) — the first successful gesture wins.
-  ['pointerdown','pointerup','touchstart','keydown','wheel','scroll'].forEach(function(ev){
-    (ev==='scroll'?window:document).addEventListener(ev,function(){
-      if(inView && !modalOpen && vid.muted) soundOn('interaction:'+ev);
+  // ONLY real activation gestures can grant audio. Scroll/wheel cannot.
+  ['pointerup','click','touchend','keydown'].forEach(function(ev){
+    document.addEventListener(ev,function(){
+      activatedFallback=true;
+      if(inView && !modalOpen && vid.muted) soundOn('user gesture:'+ev);
     },{passive:true});
   });
 
-  // Hovering the video is also a good moment to retry
+  // ---- Modal ----
+  function openModal(){
+    modalOpen=true;
+    soundOff('modal opened');
+    if(overlay) overlay.style.display='flex';
+    if(mv){ mv.muted=false; mv.volume=1.0; mv.currentTime=0;
+            mv.play().catch(function(e){ log('modal play refused', e && e.name); }); }
+  }
+  function closeModal(){
+    modalOpen=false;
+    if(overlay) overlay.style.display='none';
+    if(mv){ mv.pause(); mv.currentTime=0; }
+    soundOn('modal closed');
+  }
+
+  wrap.addEventListener('click', openModal);
   wrap.addEventListener('mouseenter',function(){
     if(hint)hint.style.background='rgba(0,0,0,.35)';
     if(icon)icon.style.opacity='1';
@@ -2277,30 +2290,11 @@ if(document.readyState === 'loading'){
     if(hint)hint.style.background='rgba(0,0,0,0)';
     if(icon)icon.style.opacity='0';
   });
-
-  // ---- Modal (click the video to open it) ----
-  function openModal(){
-    log('modal open');
-    modalOpen=true;
-    soundOff('modal opened');
-    if(overlay) overlay.style.display='flex';
-    if(mv){ mv.muted=false; mv.volume=1.0; mv.currentTime=0;
-            mv.play().catch(function(e){ log('modal play rejected', e && e.name); }); }
-  }
-  function closeModal(){
-    log('modal close');
-    modalOpen=false;
-    if(overlay) overlay.style.display='none';
-    if(mv){ mv.pause(); mv.currentTime=0; }
-    soundOn('modal closed');
-  }
-
-  wrap.addEventListener('click', openModal);
   if(overlay) overlay.addEventListener('click',function(e){ if(e.target===this) closeModal(); });
   if(closeBtn) closeBtn.addEventListener('click', closeModal);
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal(); });
 
-  log('setup complete');
+  log('ready — audio starts at your first click/tap/keypress anywhere on the page');
 })();
 </script>
 </body>
