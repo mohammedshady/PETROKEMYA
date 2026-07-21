@@ -1756,7 +1756,7 @@ canvas { filter: drop-shadow(0 0 2px rgba(0,212,255,.15)); }
             </div>
           </div>
         </div>
-        <div id="soundBadge" style="display:none;margin:.55rem auto 0;width:max-content;font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:var(--cyan);border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.08);padding:.25rem .75rem;border-radius:20px;cursor:pointer;">&#128266; TAP FOR SOUND</div>
+        <div id="soundBadge" style="display:none;margin:.6rem auto 0;width:max-content;font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#031018;font-weight:700;border:1px solid var(--cyan);background:var(--cyan);padding:.32rem .95rem;border-radius:20px;cursor:pointer;box-shadow:0 0 18px rgba(0,212,255,.55);animation:numGlow 2s ease-in-out infinite;">&#128266; TAP FOR SOUND</div>
         <div class="p-name">Ali Al-Marri &middot; &#1593;&#1604;&#1610; &#1575;&#1604;&#1605;&#1585;&#1610;</div>
         <div class="p-degree">PhD CANDIDATE &middot; BUSINESS ADMINISTRATION</div>
         <div class="p-exp">22 YEARS &middot; PETROCHEMICAL SECTOR &middot; PETROKEMYA</div>
@@ -2235,21 +2235,26 @@ if(document.readyState === 'loading'){
     if(badge) badge.style.display = show ? 'block' : 'none';
   }
 
-  // Try to turn sound on. Returns true if it worked.
+  // Try to turn sound on, then VERIFY it actually took effect.
   function tryUnmute(){
     if(modalOpen) return false;
     vid.muted = false;
     vid.volume = 1.0;
-    const p = vid.play();
-    if(p && p.catch){
-      p.then(function(){ showBadge(false); })
-       .catch(function(){
-         // browser blocked it — fall back to muted and ask for a tap
-         vid.muted = true;
-         vid.play().catch(function(){});
-         showBadge(true);
-       });
-    }
+    var p = vid.play();
+    if(p && p.catch){ p.catch(function(){}); }
+    // The video is already playing, so play() resolves even when the browser
+    // silently refuses to unmute. Verify the real state a moment later.
+    setTimeout(function(){
+      if(modalOpen) return;
+      if(vid.muted || vid.paused){
+        // blocked — keep it playing silently and ask for one tap
+        vid.muted = true;
+        vid.play().catch(function(){});
+        showBadge(inView);
+      } else {
+        showBadge(false);
+      }
+    }, 120);
     return true;
   }
 
@@ -2284,8 +2289,12 @@ if(document.readyState === 'loading'){
   if(badge){
     badge.addEventListener('click', function(e){
       e.stopPropagation();
+      e.preventDefault();
       unlocked = true;
-      tryUnmute();
+      vid.muted = false;
+      vid.volume = 1.0;
+      vid.play().catch(function(){});
+      setTimeout(function(){ showBadge(vid.muted); }, 120);
     });
   }
 
