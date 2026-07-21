@@ -2292,12 +2292,26 @@ if(document.readyState === 'loading'){
       var p = vid.play(); if(p && p.catch) p.catch(function(){});
       setTimeout(function(){
         if(modalOpen) return;
-        if(vid.muted){                 // browser refused
+        if(vid.muted){                 // browser refused to unmute
           setBadge('off');
-        } else {
-          setBadge('on');
-          if(detectAudio() === false){ audioVerdict = false; setBadge('noaudio'); }
+          return;
         }
+        setBadge('on');
+        // Now that we are playing UNMUTED, the browser will decode audio bytes
+        // if (and only if) an audio track exists. Give it a moment, then judge.
+        setTimeout(function(){
+          if(modalOpen || vid.muted) return;
+          var d = detectAudio();
+          if(d === false){ audioVerdict = false; setBadge('noaudio'); return; }
+          if(typeof vid.webkitAudioDecodedByteCount === 'number'){
+            if(vid.webkitAudioDecodedByteCount === 0 && vid.currentTime > 0.8){
+              audioVerdict = false;    // played unmuted, decoded zero audio bytes => no audio track
+              setBadge('noaudio');
+            } else {
+              audioVerdict = true;
+            }
+          }
+        }, 1800);
       }, 150);
     } else {
       vid.muted = true;
